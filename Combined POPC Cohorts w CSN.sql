@@ -503,23 +503,33 @@ WHERE
 
 
 --Patient Information------------------------------------
+--     PatientRaceDSC 'Unavailable' values are removed.
+--     PatientRaceDSC  only the first value will be selected.
+WITH CTE AS
+(
+SELECT DISTINCT PatientID
+      ,PatientRaceDSC
+	  ,ROW_NUMBER() OVER (PARTITION BY PatientID ORDER BY PatientRaceDSC DESC) AS RN
+FROM Epic.Patient.Race_DFCI
+WHERE PatientRaceDSC!='Unavailable'
+)
 SELECT t1.PatientID
       ,t1.BirthDTS
 	  ,t1.SexDSC
 	  ,t1.ZipCD
 	  ,t2.ReferralTypeDSC
---	  ,t3.PatientRaceDSC
+	  ,t3.PatientRaceDSC
       ,t4.CustomColumn02DSC AS DiseaseCenter
-	  ,COUNT(t1.PatientID) AS CNT
 FROM Epic.patient.Patient_DFCI t1
-LEFT JOIN (SELECT DISTINCT PatientID,ReferralTypeDSC FROM Epic.Patient.Referral_DFCI) t2 ON t1.PatientID=t2.PatientID
---LEFT JOIN Epic.Patient.Race_DFCI t3 ON t1.PatientID=t2.PatientID
-LEFT JOIN (SELECT DISTINCT PatientID,CustomColumn02DSC FROM Epic.patient.RegistrationAdditional_DFCI) t4 ON t1.PatientID=t4.PatientID
-GROUP BY t1.PatientID
-      ,t1.BirthDTS
-	  ,t1.SexDSC
-	  ,t1.ZipCD
-	  ,t2.ReferralTypeDSC
---	  ,t3.PatientRaceDSC
-      ,t4.CustomColumn02DSC
-ORDER BY CNT DESC
+LEFT JOIN (SELECT DISTINCT 
+                  PatientID
+				 ,ReferralTypeDSC 
+		   FROM Epic.Patient.Referral_DFCI) AS t2 ON t1.PatientID=t2.PatientID
+LEFT JOIN (SELECT 
+                  CTE.* 
+           FROM CTE 
+		   WHERE CTE.RN=1) AS t3 ON t1.PatientID=t3.PatientID
+LEFT JOIN (SELECT DISTINCT 
+                  PatientID
+				 ,CustomColumn02DSC 
+		   FROM Epic.patient.RegistrationAdditional_DFCI) AS t4 ON t1.PatientID=t4.PatientID
