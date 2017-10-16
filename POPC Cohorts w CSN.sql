@@ -1,4 +1,5 @@
 /**********CU5 POPC Project Data Modeling**********/
+/*For inpatient activity data,  need to double chek to see BHW info is there.*/
 USE Epic; --Data Source
 USE UserWork; --COBA Temp Data Dump Area for Tableau Mock-up
 DECLARE @startdate DATE;
@@ -40,7 +41,7 @@ SELECT SYSDATETIME() AS CreationDTS,
        m13.Medication AS BISACODYL_Ind,
        m14.Medication AS MAGNESIUMCITRATE_Ind,
        adt.PatientServiceDSC,
-       loc.RevenueLocationNM,
+       loc.RevenueLocationNM AS PatientLocation,
 	   ra.CustomColumn02DSC AS DiseaseCenter
 --       uc.ReferralProviderID
 INTO UserWork.DFCICOBA.POPC_Clinic
@@ -560,7 +561,7 @@ SELECT SYSDATETIME() AS CreationDTS,
        m12.Medication AS LACTULOSE_Ind,
        m13.Medication AS BISACODYL_Ind,
        m14.Medication AS MAGNESIUMCITRATE_Ind,
-       loc.RevenueLocationNM
+       loc.RevenueLocationNM AS PatientLocation
 --,pidb.PatientIdentityID as BWH_MRN,
 --,pidd.PatientIdentityID as DFCI_MRN,
 INTO UserWork.DFCICOBA.POPC_Consult
