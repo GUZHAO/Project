@@ -1,7 +1,6 @@
 /**********CU5 POPC Project Data Modeling**********/
 USE Epic; --Data Source
 USE UserWork; --COBA Temp Data Dump Area for Tableau Mock-up
-
 DECLARE @startdate DATE;
 DECLARE @enddate DATE;
 SET @startdate = '01/28/2017';
@@ -22,8 +21,8 @@ SELECT SYSDATETIME() AS CreationDTS,
        pe.DepartmentDSC,
        pe.HospitalAdmitTypeDSC,
        pe.EncounterEpicProviderID,
-       pe.HospitalAdmitDTS,
-       pe.HospitalDischargeDTS,
+       pe.HospitalAdmitDTS,     /*Provided in the dataset, but does this make sense*/
+       pe.HospitalDischargeDTS, /*Provided in the dataset, but does this make sense*/
        ttp1.Chaplain_CNT,
        ttp2.SocialWorker_CNT,
        m1.Medication AS MSCONTIN_Ind,
@@ -41,7 +40,9 @@ SELECT SYSDATETIME() AS CreationDTS,
        m13.Medication AS BISACODYL_Ind,
        m14.Medication AS MAGNESIUMCITRATE_Ind,
        adt.PatientServiceDSC,
-       loc.RevenueLocationNM
+       loc.RevenueLocationNM,
+	   ra.CustomColumn02DSC AS DiseaseCenter
+--       uc.ReferralProviderID
 INTO UserWork.DFCICOBA.POPC_Clinic
 FROM Epic.Encounter.PatientEncounter_DFCI pe
     LEFT JOIN
@@ -50,7 +51,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
             PatientEncounterID,
             DocumentTypeDSC
         FROM Epic.Encounter.DocumentInformation_DFCI
-        WHERE DocumentTypeDSC IN ( 'MOLST' )
+        WHERE DocumentTypeDSC IN ( 'MOLST' )/*DocumentStatusDSC is not considered*/
     ) di1
         ON pe.PatientEncounterID = di1.PatientEncounterID
     LEFT JOIN
@@ -59,7 +60,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
             PatientEncounterID,
             DocumentTypeDSC
         FROM Epic.Encounter.DocumentInformation_DFCI
-        WHERE DocumentTypeDSC IN ( 'Healthcare Proxy' )
+        WHERE DocumentTypeDSC IN ( 'Healthcare Proxy' )/*DocumentStatusDSC is not considered*/
     ) di2
         ON pe.PatientEncounterID = di2.PatientEncounterID
     LEFT JOIN
@@ -75,7 +76,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
         SELECT PatientEncounterID,
                COUNT(PatientEncounterID) AS Chaplain_CNT
         FROM Epic.Encounter.TreatmentTeamProvider_DFCI
-        WHERE RoleDSC LIKE '%Chaplain%'
+        WHERE RoleDSC LIKE '%Chaplain%' /*ActionDSC is not considered*/
         GROUP BY PatientEncounterID,
                  RoleDSC
     ) ttp1
@@ -85,11 +86,12 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
         SELECT PatientEncounterID,
                COUNT(PatientEncounterID) AS SocialWorker_CNT
         FROM Epic.Encounter.TreatmentTeamProvider_DFCI
-        WHERE RoleDSC = 'Social Worker'
+        WHERE RoleDSC = 'Social Worker' /*Social Worker Student is excluded*/ /*ActionDSC is not considered*/
         GROUP BY PatientEncounterID,
                  RoleDSC
     ) ttp2
         ON pe.PatientEncounterID = ttp2.PatientEncounterID
+    /*Medication dosage, consuming method are not considered and it follows the list of drugs that Dr.Tulsky gave us*/
     LEFT JOIN
     (
         SELECT DISTINCT
@@ -114,7 +116,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
             PatientEncounterID,
             'FENTANYL' AS Medication
         FROM Epic.Orders.Medication_DFCI
-        WHERE MedicationDSC LIKE '%FENTANYL%'
+        WHERE MedicationDSC LIKE '%FENTANYL%PATCH%'
     ) AS m3
         ON pe.PatientEncounterID = m3.PatientEncounterID
     LEFT JOIN
@@ -213,7 +215,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
             PatientEncounterID,
             'MAGNESIUM CITRATE' AS Medication
         FROM Epic.Orders.Medication_DFCI
-        WHERE MedicationDSC LIKE '%MAGNESIUM CITRATE%'
+        WHERE MedicationDSC LIKE '%MAGNESIUM%CITRATE%'
     ) AS m14
         ON pe.PatientEncounterID = m14.PatientEncounterID
     LEFT JOIN
@@ -236,11 +238,30 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
                 ON t1.LocationID = t2.RevenueLocationID
     ) AS loc
         ON pe.DepartmentID = loc.DepartmentID
+/*    LEFT JOIN
+    (
+        SELECT DISTINCT
+            PatientID,
+            ServiceDTS,
+            ReferralProviderID
+        FROM Epic.Finance.UniversalChargeLine_DFCI
+        WHERE DepartmentDSC IN ( 'DF PALLIATIVE CARE', 'DF PSYCH ONC' )
+              AND ReferralProviderID IS NOT NULL
+    ) AS uc
+        ON pe.PatientID = uc.PatientID
+           AND CAST(uc.ServiceDTS AS DATE) = CAST(pe.AppointmentDTS AS DATE)*/
+	LEFT JOIN
+    (
+        SELECT DISTINCT
+            PatientID,
+            CustomColumn02DSC
+        FROM Epic.Patient.RegistrationAdditional_DFCI
+    ) AS ra
+        ON pe.PatientID = ra.PatientID
 WHERE pe.DepartmentDSC IN ( 'DF PALLIATIVE CARE', 'DF PSYCH ONC' )
       AND pe.AppointmentStatusDSC IN ( 'Completed', 'Arrived' )
       AND pe.AppointmentDTS
       BETWEEN @startdate AND @enddate;
-
 
 --IPCU Stay-----------------------------------------
 DROP TABLE UserWork.DFCICOBA.POPC_IPCU;
@@ -248,34 +269,25 @@ DECLARE @startdate DATE;
 DECLARE @enddate DATE;
 SET @startdate = '01/28/2017';
 SET @enddate = '08/31/2017';
-/*
-WITH CTE AS (
-SELECT DISTINCT
-       PatientEncounterID
-      ,PatientServiceDSC
-FROM Epic.Encounter.ADT_DFCI
-WHERE YEAR(EventDTS)>2016 
-)
-*/
+SET @startdate = '01/28/2017';
+SET @enddate = '08/31/2017';
 SELECT SYSDATETIME() AS CreationDTS,
-       'IPCU' AS POPC_Cohort,
+       CASE WHEN pb.BillAreaID=821 THEN 'IPCU' WHEN pb.BillAreaID=814 THEN 'GIP' END AS POPC_Cohort,
        pb.PatientID,
        pb.PatientEncounterID,
        pb.ServiceDTS,
        pb.BillAreaID,
-       pb.PlaceOfServiceID,
-       --	,adt.PatientServiceDSC
+       pb.PlaceOfServiceID,      --	,adt.PatientServiceDSC
        di1.DocumentTypeDSC AS MOLST_Ind,
        di2.DocumentTypeDSC AS PROXY_Ind,
        ttp1.Chaplain_CNT,
        ttp2.SocialWorker_CNT,
-       hap.ProviderID,
+       hap.ProviderID AS AttendingProviderID,
        peh.DepartmentDSC,
        peh.DischargeDispositionDSC,
        peh.HospitalAdmitDTS,
        peh.HospitalDischargeDTS,
-       peh.HospitalAdmitTypeDSC,
-       --	,rfv.ReasonNM
+       peh.HospitalAdmitTypeDSC, --	,rfv.ReasonNM
        m1.Medication AS MSCONTIN_Ind,
        m2.Medication AS OXYCONTI_Ind,
        m3.Medication AS FENTANYL_Ind,
@@ -289,7 +301,8 @@ SELECT SYSDATETIME() AS CreationDTS,
        m11.Medication AS MILKOFMAGNESIA_Ind,
        m12.Medication AS LACTULOSE_Ind,
        m13.Medication AS BISACODYL_Ind,
-       m14.Medication AS MAGNESIUMCITRATE_Ind
+       m14.Medication AS MAGNESIUMCITRATE_Ind,
+	   ra.CustomColumn02DSC AS DiseaseCenter
 INTO UserWork.DFCICOBA.POPC_IPCU
 FROM Epic.Finance.ProfessionalBillingTransaction_DFCI pb
     -- LEFT JOIN CTE AS adt ON pb.PatientEncounterID=adt.PatientEncounterID
@@ -393,7 +406,7 @@ FROM Epic.Finance.ProfessionalBillingTransaction_DFCI pb
             PatientEncounterID,
             'FENTANYL' AS Medication
         FROM Epic.Orders.Medication_DFCI
-        WHERE MedicationDSC LIKE '%FENTANYL%'
+        WHERE MedicationDSC LIKE '%FENTANYL%PATCH%'
     ) AS m3
         ON pb.PatientEncounterID = m3.PatientEncounterID
     LEFT JOIN
@@ -492,42 +505,43 @@ FROM Epic.Finance.ProfessionalBillingTransaction_DFCI pb
             PatientEncounterID,
             'MAGNESIUM CITRATE' AS Medication
         FROM Epic.Orders.Medication_DFCI
-        WHERE MedicationDSC LIKE '%MAGNESIUM CITRATE%'
+        WHERE MedicationDSC LIKE '%MAGNESIUM%CITRATE%'
     ) AS m14
         ON pb.PatientEncounterID = m14.PatientEncounterID
-WHERE pb.BillAreaID = 821 --IPCU area
+	LEFT JOIN
+    (
+        SELECT DISTINCT
+            PatientID,
+            CustomColumn02DSC
+        FROM Epic.Patient.RegistrationAdditional_DFCI
+    ) AS ra
+        ON pb.PatientID = ra.PatientID
+WHERE pb.BillAreaID IN ( 821, 814 ) --IPCU area and Hospice area
       AND pb.PlaceOfServiceID = 690 --(BWH MAIN CAMPUS IP)
       AND pb.ServiceDTS
       BETWEEN @startdate AND @enddate;
 
-
-
-
 --IP Consult to PC--------------------------------------------------------------------------------
 --need Orders.Procedure2_BWHDFCI and Orders.Procedure3_BWHDFCI views to complete filter
 DROP TABLE UserWork.DFCICOBA.POPC_Consult;
-DECLARE @startdate DATE;
-DECLARE @enddate DATE;
-SET @startdate = '01/28/2017';
-SET @enddate = '08/31/2017';
 
-SELECT pt.PatientID,
+SELECT SYSDATETIME() AS CreationDTS,
+       'Consult' AS POPC_Cohort,
+       pt.PatientID,
        op.PatientEncounterID,
        op.OrderingDTS,
        op.ProcedureCD,
        op.ServiceAreaID,
-       'Consult' AS POPC_Cohort,
        pt.BirthDTS,
        pt.SexDSC,
        pt.ZipCD,
-       --    ,r.ReferralTypeDSC
        ra.CustomColumn02DSC AS DiseaseCenter,
        ENC_HOSP.DepartmentDSC,
        ENC_HOSP.DischargeDispositionDSC,
        ENC_HOSP.HospitalAdmitDTS,
        ENC_HOSP.HospitalAdmitTypeDSC,
        ENC_HOSP.HospitalDischargeDTS,
-       hap.ProviderID,
+       hap.ProviderID AS AttendingProviderID,
        di1.DocumentTypeDSC AS MOLST_Ind,
        di2.DocumentTypeDSC AS PROXY_Ind,
        ttp1.Chaplain_CNT,
@@ -545,7 +559,8 @@ SELECT pt.PatientID,
        m11.Medication AS MILKOFMAGNESIA_Ind,
        m12.Medication AS LACTULOSE_Ind,
        m13.Medication AS BISACODYL_Ind,
-       m14.Medication AS MAGNESIUMCITRATE_Ind
+       m14.Medication AS MAGNESIUMCITRATE_Ind,
+       loc.RevenueLocationNM
 --,pidb.PatientIdentityID as BWH_MRN,
 --,pidd.PatientIdentityID as DFCI_MRN,
 INTO UserWork.DFCICOBA.POPC_Consult
@@ -567,7 +582,7 @@ FROM Epic.Patient.Patient_BWHDFCI pt
             AttendingStartDTS
         FROM Epic.Encounter.HospitalAttendingProvider_DFCI
         WHERE ProviderID NOT LIKE 'E%'
-    ) AS hap
+    ) hap
         ON ENC_HOSP.PatientEncounterID = hap.PatientEncounterID
            AND ENC_HOSP.HospitalAdmitDTS = hap.AttendingStartDTS
     LEFT JOIN
@@ -608,7 +623,6 @@ FROM Epic.Patient.Patient_BWHDFCI pt
                  RoleDSC
     ) ttp2
         ON ENC_HOSP.PatientEncounterID = ttp2.PatientEncounterID
-    --  LEFT JOIN (SELECT DISTINCT PatientID,ReferralTypeDSC FROM Epic.Patient.Referral_DFCI) AS r ON pt.PatientID=r.PatientID
     LEFT JOIN
     (
         SELECT DISTINCT
@@ -743,6 +757,17 @@ FROM Epic.Patient.Patient_BWHDFCI pt
         WHERE MedicationDSC LIKE '%MAGNESIUM%CITRATE%'
     ) AS m14
         ON ENC_HOSP.PatientEncounterID = m14.PatientEncounterID
+    LEFT JOIN
+    (
+        SELECT DISTINCT
+            t1.LocationID,
+            t1.RevenueLocationNM,
+            t2.DepartmentID
+        FROM Epic.Reference.Location t1
+            LEFT JOIN Epic.Reference.Department t2
+                ON t1.LocationID = t2.RevenueLocationID
+    ) AS loc
+        ON ENC_HOSP.DepartmentID = loc.DepartmentID
 WHERE op.ProcedureID = 371 --'IP CONSULT TO PALLIATIVE CARE'
       AND op.ServiceAreaID = 10 --Partners Service Area
       --EDW_ORD_PROC_03.StatusCompleteDTS IS NOT NULL and  --Completed Consults
@@ -750,10 +775,10 @@ WHERE op.ProcedureID = 371 --'IP CONSULT TO PALLIATIVE CARE'
       AND op.OrderingDTS
       BETWEEN @startdate AND @enddate;
 
-
 --Patient Information------------------------------------
---     PatientRaceDSC 'Unavailable' values are removed.
---     PatientRaceDSC  only the first value will be selected.
+/*PatientRaceDSC 'Unavailable' values are removed*/
+/*PatientRaceDSC  only the first value will be selected*/
+DROP TABLE UserWork.DFCICOBA.POPC_Patient_Info;
 WITH CTE
 AS (SELECT DISTINCT
         PatientID,
@@ -767,6 +792,7 @@ SELECT t1.PatientID,
        t1.ZipCD,
        t2.PatientRaceDSC,
        t3.CustomColumn02DSC AS DiseaseCenter
+INTO UserWork.DFCICOBA.POPC_Patient_Info
 FROM Epic.Patient.Patient_DFCI t1
     LEFT JOIN
     (SELECT CTE.* FROM CTE WHERE CTE.RN = 1) AS t2
