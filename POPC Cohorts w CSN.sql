@@ -270,13 +270,11 @@ DECLARE @startdate DATE;
 DECLARE @enddate DATE;
 SET @startdate = '01/28/2017';
 SET @enddate = '08/31/2017';
-SET @startdate = '01/28/2017';
-SET @enddate = '08/31/2017';
 SELECT SYSDATETIME() AS CreationDTS,
        CASE WHEN pb.BillAreaID=821 THEN 'IPCU' WHEN pb.BillAreaID=814 THEN 'GIP' END AS POPC_Cohort,
        pb.PatientID,
        pb.PatientEncounterID,
-       pb.ServiceDTS,
+       pb.ServiceDTS AS DTS,
        pb.BillAreaID,
        pb.PlaceOfServiceID,      --	,adt.PatientServiceDSC
        di1.DocumentTypeDSC AS MOLST_Ind,
@@ -530,7 +528,7 @@ SELECT SYSDATETIME() AS CreationDTS,
        'Consult' AS POPC_Cohort,
        pt.PatientID,
        op.PatientEncounterID,
-       op.OrderingDTS,
+       op.OrderingDTS AS DTS,
        op.ProcedureCD,
        op.ServiceAreaID,
        pt.BirthDTS,
