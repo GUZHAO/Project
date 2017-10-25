@@ -13,19 +13,15 @@ SELECT SYSDATETIME() AS CreationDTS,
        'Clinic' AS POPC_Cohort,
        pe.PatientID,
        pe.PatientEncounterID,
-       pe.AppointmentDTS,
-       pe.AppointmentStatusDSC,
-       pe.VisitTypeID,
-       vtr.VisitTypeDSC,
+       pe.AppointmentDTS AS DTS,      
        di1.DocumentTypeDSC AS MOLST_Ind,
        di2.DocumentTypeDSC AS PROXY_Ind,
+	   ttp1.Chaplain_CNT,
+       ttp2.SocialWorker_CNT,
        pe.DepartmentDSC,
-       pe.HospitalAdmitTypeDSC,
-       pe.EncounterEpicProviderID,
        pe.HospitalAdmitDTS,     /*Provided in the dataset, but does this make sense*/
        pe.HospitalDischargeDTS, /*Provided in the dataset, but does this make sense*/
-       ttp1.Chaplain_CNT,
-       ttp2.SocialWorker_CNT,
+	   pe.HospitalAdmitTypeDSC,
        m1.Medication AS MSCONTIN_Ind,
        m2.Medication AS OXYCONTI_Ind,
        m3.Medication AS FENTANYL_Ind,
@@ -40,10 +36,12 @@ SELECT SYSDATETIME() AS CreationDTS,
        m12.Medication AS LACTULOSE_Ind,
        m13.Medication AS BISACODYL_Ind,
        m14.Medication AS MAGNESIUMCITRATE_Ind,
-       adt.PatientServiceDSC,
-       loc.RevenueLocationNM AS PatientLocation,
-	   ra.CustomColumn02DSC AS DiseaseCenter
---       uc.ReferralProviderID
+	   ra.CustomColumn02DSC AS DiseaseCenter,
+	   pe.EncounterEpicProviderID,
+	   vtr.VisitTypeDSC,
+	   adt.PatientServiceDSC,
+       loc.RevenueLocationNM AS PatientLocation
+--     uc.ReferralProviderID
 INTO UserWork.DFCICOBA.POPC_Clinic
 FROM Epic.Encounter.PatientEncounter_DFCI pe
     LEFT JOIN
@@ -77,7 +75,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
         SELECT PatientEncounterID,
                COUNT(PatientEncounterID) AS Chaplain_CNT
         FROM Epic.Encounter.TreatmentTeamProvider_DFCI
-        WHERE RoleDSC LIKE '%Chaplain%' /*ActionDSC is not considered*/
+        WHERE RoleDSC LIKE '%Chaplain%'
         GROUP BY PatientEncounterID,
                  RoleDSC
     ) ttp1
@@ -87,7 +85,7 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
         SELECT PatientEncounterID,
                COUNT(PatientEncounterID) AS SocialWorker_CNT
         FROM Epic.Encounter.TreatmentTeamProvider_DFCI
-        WHERE RoleDSC = 'Social Worker' /*Social Worker Student is excluded*/ /*ActionDSC is not considered*/
+        WHERE RoleDSC = 'Social Worker'
         GROUP BY PatientEncounterID,
                  RoleDSC
     ) ttp2
@@ -239,6 +237,14 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
                 ON t1.LocationID = t2.RevenueLocationID
     ) AS loc
         ON pe.DepartmentID = loc.DepartmentID
+	LEFT JOIN
+    (
+        SELECT DISTINCT
+            PatientID,
+            CustomColumn02DSC
+        FROM Epic.Patient.RegistrationAdditional_DFCI
+    ) AS ra
+        ON pe.PatientID = ra.PatientID
 /*    LEFT JOIN
     (
         SELECT DISTINCT
@@ -251,14 +257,6 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
     ) AS uc
         ON pe.PatientID = uc.PatientID
            AND CAST(uc.ServiceDTS AS DATE) = CAST(pe.AppointmentDTS AS DATE)*/
-	LEFT JOIN
-    (
-        SELECT DISTINCT
-            PatientID,
-            CustomColumn02DSC
-        FROM Epic.Patient.RegistrationAdditional_DFCI
-    ) AS ra
-        ON pe.PatientID = ra.PatientID
 WHERE pe.DepartmentDSC IN ( 'DF PALLIATIVE CARE', 'DF PSYCH ONC' )
       AND pe.AppointmentStatusDSC IN ( 'Completed', 'Arrived' )
       AND pe.AppointmentDTS
@@ -529,22 +527,16 @@ SELECT SYSDATETIME() AS CreationDTS,
        pt.PatientID,
        op.PatientEncounterID,
        op.OrderingDTS AS DTS,
-       op.ProcedureCD,
-       op.ServiceAreaID,
-       pt.BirthDTS,
-       pt.SexDSC,
-       pt.ZipCD,
-       ra.CustomColumn02DSC AS DiseaseCenter,
+       di1.DocumentTypeDSC AS MOLST_Ind,
+       di2.DocumentTypeDSC AS PROXY_Ind,
+	   ttp1.Chaplain_CNT,
+       ttp2.SocialWorker_CNT,
+	   hap.ProviderID AS AttendingProviderID,
        ENC_HOSP.DepartmentDSC,
        ENC_HOSP.DischargeDispositionDSC,
        ENC_HOSP.HospitalAdmitDTS,
-       ENC_HOSP.HospitalAdmitTypeDSC,
        ENC_HOSP.HospitalDischargeDTS,
-       hap.ProviderID AS AttendingProviderID,
-       di1.DocumentTypeDSC AS MOLST_Ind,
-       di2.DocumentTypeDSC AS PROXY_Ind,
-       ttp1.Chaplain_CNT,
-       ttp2.SocialWorker_CNT,
+       ENC_HOSP.HospitalAdmitTypeDSC,
        m1.Medication AS MSCONTIN_Ind,
        m2.Medication AS OXYCONTI_Ind,
        m3.Medication AS FENTANYL_Ind,
@@ -559,7 +551,13 @@ SELECT SYSDATETIME() AS CreationDTS,
        m12.Medication AS LACTULOSE_Ind,
        m13.Medication AS BISACODYL_Ind,
        m14.Medication AS MAGNESIUMCITRATE_Ind,
-       loc.RevenueLocationNM AS PatientLocation
+	   ra.CustomColumn02DSC AS DiseaseCenter,
+       loc.RevenueLocationNM AS PatientLocation,
+	   op.ProcedureCD,
+       op.ServiceAreaID,
+       pt.BirthDTS,
+       pt.SexDSC,
+       pt.ZipCD
 --,pidb.PatientIdentityID as BWH_MRN,
 --,pidd.PatientIdentityID as DFCI_MRN,
 INTO UserWork.DFCICOBA.POPC_Consult
