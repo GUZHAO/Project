@@ -1,346 +1,664 @@
-
-        
-SELECT DISTINCT 
-       COALESCE(pa11.DISEASE_GRP_FN_DEPT_DESCR,
-                pa12.DISEASE_GRP_FN_DEPT_DESCR,
-                pa13.DISEASE_GRP_FN_DEPT_DESCR,
-                pa14.DISEASE_GRP_FN_DEPT_DESCR) DISEASE_GRP_FN_DEPT_DESCR,
-       COALESCE(pa11.DISEASE_SUBGRP_DESCR, 
-                pa12.DISEASE_SUBGRP_DESCR, 
-                pa13.DISEASE_SUBGRP_DESCR, 
-                pa14.DISEASE_SUBGRP_DESCR) DISEASE_SUBGRP_DESCR,
-       COALESCE(pa11.PROV_ID, 
-                pa12.PROV_ID, 
-                pa13.PROV_ID, 
-                pa14.PROV_ID) PROV_ID,
-       COALESCE(pa11.PROV_ID0, 
-                pa12.PROV_ID0, 
-                pa13.PROV_ID0, 
-                pa14.PROV_ID0) PROV_ID0,
-       a15.PROV_NM PROV_NM,
-       COALESCE(pa11.PROV_TYPE_CD, 
-                pa12.PROV_TYPE_CD, 
-                pa13.PROV_TYPE_CD, 
-                pa14.PROV_TYPE_CD) PROV_TYPE_CD,
-       COALESCE(pa11.PROV_TYPE_CD0, 
-                pa12.PROV_TYPE_CD0, 
-                pa13.PROV_TYPE_CD0, 
-                pa14.PROV_TYPE_CD0) PROV_TYPE_CD0,
-       pa11.CURRENTMONTHINPATIENTRVU CURRENTMONTHINPATIENTRVU,
-       pa12.CURRENTMONTHOUTPATIENTRVU CURRENTMONTHOUTPATIENTRVU,
-       (NVL(pa11.CURRENTMONTHINPATIENTRVU, 0) + NVL(pa12.CURRENTMONTHOUTPATIENTRVU, 0)) CURRENTMONTHTOTALRVU,
-       pa13.CURRENTYEARINPATIENTRVU CURRENTYEARINPATIENTRVU,
-       pa14.CURRENTYEAROUTPATIENTRVU CURRENTYEAROUTPATIENTRVU,
-       (NVL(pa13.CURRENTYEARINPATIENTRVU, 0) + NVL(pa14.CURRENTYEAROUTPATIENTRVU, 0)) CURRENTYEARTOTALRVU
-  FROM (   SELECT a12.EPIC_PROV_ID PROV_ID,
-                  CASE
-                       WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                       WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN 'NP/PA'
-                       ELSE 'N/A' END PROV_TYPE_CD,
-                  CASE
-                       WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                       WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                       WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN 'NP/PA'
-                       ELSE 'N/A' END PROV_TYPE_CD0,
-                  a12.EPIC_PROV_ID PROV_ID0,
-                  a12.DISEASE_GRP_DESCR DISEASE_GRP_FN_DEPT_DESCR,
-                  a12.DISEASE_SUBGRP_DESCR DISEASE_SUBGRP_DESCR,
-                  SUM(NVL(a11.TOT_WORK_RVU_AMT, 0)) CURRENTMONTHINPATIENTRVU
-             FROM (   SELECT RVU.PROV_DIM_SEQ,
-                             RVU.PROC_DIM_SEQ,
-                             BEG_MTH_DIM_SEQ,
-                             INST_DIM_SEQ,
-                             CLIN_DEPT_DIM_SEQ,
-                             INPAT_OUTPAT_IND,
-                             (CASE
-                                   WHEN PROV.PROV_TYPE_DESCR = 'PHYSICIAN' THEN -1
-                                   ELSE SUPER_PROV_DIM_SEQ END) SUPER_PROV_DIM_SEQ,
-                             TOT_SERVICE_QTY,
-                             TOT_WORK_RVU_AMT,
-                             TOT_SERVICE_AMT,
-                             RVU.DART_CREATE_DTTM
-                        FROM DARTEDM.F_MTHLY_PROV_SERVICE_RVU RVU
-                        JOIN DARTEDM.D_PROV PROV ON RVU.PROV_DIM_SEQ = PROV.PROV_DIM_SEQ) a11
-             LEFT JOIN DARTEDM.D_PROV a12 ON (a11.PROV_DIM_SEQ = a12.PROV_DIM_SEQ)
-             LEFT JOIN DARTEDM.D_CLIN_DEPT a13 ON (a11.CLIN_DEPT_DIM_SEQ = a13.CLIN_DEPT_DIM_SEQ)
-             LEFT JOIN DARTEDM.MV_RVU_REPORT_CATEGORY a14 ON (   (CASE WHEN a13.CLIN_DEPT_ABBREV IS NULL THEN 'N/A'
-                                                                       ELSE a13.CLIN_DEPT_ABBREV END) = (CASE WHEN a14.CLIN_DEPT_ABBREV IS NULL THEN 'N/A'
-                                                                                                              ELSE a14.CLIN_DEPT_ABBREV END)
-                AND   a12.EPIC_PROV_ID = a14.EPIC_PROV_ID)
-             LEFT JOIN DARTEDM.D_CALENDAR a15 ON (a11.BEG_MTH_DIM_SEQ = a15.CALENDAR_DIM_SEQ)
-            WHERE (   a12.INT_EXT_IND IN ( 'E' )
-                AND   (CASE
-                            WHEN TRIM(a14.DISEASE_GRP_ABBREV) IS NULL THEN 'N/A'
-                            ELSE TRIM(a14.DISEASE_GRP_ABBREV) END) NOT IN ( 'STIPEND' )
-                AND   a15.CALENDAR_DT BETWEEN (   SELECT MIN(CALENDAR_DT)
-                                                    FROM DARTEDM.D_CALENDAR
-                                                   WHERE MONTH_NBR   = (   SELECT MONTH_NBR
-                                                                             FROM DARTEDM.D_CALENDAR
-                                                                            WHERE CALENDAR_DT = To_Date(
-                                                                                                    '31-07-2017',
-                                                                                                    'dd-mm-yyyy'))
-                                                     AND ACADEMIC_YR = (   SELECT ACADEMIC_YR
-                                                                             FROM DARTEDM.D_CALENDAR
-                                                                            WHERE CALENDAR_DT = To_Date(
-                                                                                                    '31-07-2017',
-                                                                                                    'dd-mm-yyyy'))) AND To_Date(
-                                                                                                                            '31-07-2017',
-                                                                                                                            'dd-mm-yyyy')
-                AND   (CASE
-                            WHEN a11.INPAT_OUTPAT_IND = 'O' THEN 'OUTPATIENT'
-                            WHEN a11.INPAT_OUTPAT_IND = 'I' THEN 'INPATIENT'
-                            ELSE '' END) IN ( 'INPATIENT' ))
-            GROUP BY a12.EPIC_PROV_ID,
-                     CASE
-                          WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                          WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN 'NP/PA'
-                          ELSE 'N/A' END,
-                     CASE
-                          WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                          WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                          WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN 'NP/PA'
-                          ELSE 'N/A' END,
-                     a12.EPIC_PROV_ID,
-                     a12.DISEASE_GRP_DESCR,
-                     a12.DISEASE_SUBGRP_DESCR) pa11
-  FULL OUTER JOIN (   SELECT a12.EPIC_PROV_ID PROV_ID,
-                             CASE
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                      'NP/PA'
-                                  ELSE 'N/A' END PROV_TYPE_CD,
-                             CASE
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                      'NP/PA'
-                                  ELSE 'N/A' END PROV_TYPE_CD0,
-                             a12.EPIC_PROV_ID PROV_ID0,
-                             a12.DISEASE_GRP_DESCR DISEASE_GRP_FN_DEPT_DESCR,
-                             a12.DISEASE_SUBGRP_DESCR DISEASE_SUBGRP_DESCR,
-                             SUM(NVL(a11.TOT_WORK_RVU_AMT, 0)) CURRENTMONTHOUTPATIENTRVU
-                        FROM (   SELECT RVU.PROV_DIM_SEQ,
-                                        RVU.PROC_DIM_SEQ,
-                                        BEG_MTH_DIM_SEQ,
-                                        INST_DIM_SEQ,
-                                        CLIN_DEPT_DIM_SEQ,
-                                        INPAT_OUTPAT_IND,
-                                        (CASE
-                                              WHEN PROV.PROV_TYPE_DESCR = 'PHYSICIAN' THEN -1
-                                              ELSE SUPER_PROV_DIM_SEQ END) SUPER_PROV_DIM_SEQ,
-                                        TOT_SERVICE_QTY,
-                                        TOT_WORK_RVU_AMT,
-                                        TOT_SERVICE_AMT,
-                                        RVU.DART_CREATE_DTTM
-                                   FROM DARTEDM.F_MTHLY_PROV_SERVICE_RVU RVU
-                                   JOIN DARTEDM.D_PROV PROV
-                                     ON RVU.PROV_DIM_SEQ = PROV.PROV_DIM_SEQ) a11
-                        LEFT OUTER JOIN DARTEDM.D_PROV a12
-                          ON (a11.PROV_DIM_SEQ                        = a12.PROV_DIM_SEQ)
-                        LEFT OUTER JOIN DARTEDM.D_CLIN_DEPT a13
-                          ON (a11.CLIN_DEPT_DIM_SEQ                   = a13.CLIN_DEPT_DIM_SEQ)
-                        LEFT OUTER JOIN DARTEDM.MV_RVU_REPORT_CATEGORY a14
-                          ON (   (CASE
-                                       WHEN a13.CLIN_DEPT_ABBREV IS NULL THEN 'N/A'
-                                       ELSE a13.CLIN_DEPT_ABBREV END) = (CASE
-                                                                              WHEN a14.CLIN_DEPT_ABBREV IS NULL THEN
-                                                                                  'N/A'
-                                                                              ELSE a14.CLIN_DEPT_ABBREV END)
-                           AND   a12.EPIC_PROV_ID                     = a14.EPIC_PROV_ID)
-                        LEFT OUTER JOIN DARTEDM.D_CALENDAR a15
-                          ON (a11.BEG_MTH_DIM_SEQ                     = a15.CALENDAR_DIM_SEQ)
-                       WHERE (   a12.INT_EXT_IND IN ( 'E' )
-                           AND   (CASE
-                                       WHEN TRIM(a14.DISEASE_GRP_ABBREV) IS NULL THEN 'N/A'
-                                       ELSE TRIM(a14.DISEASE_GRP_ABBREV) END) NOT IN ( 'STIPEND' )
-                           AND   a15.CALENDAR_DT BETWEEN (   SELECT MIN(CALENDAR_DT)
-                                                               FROM DARTEDM.D_CALENDAR
-                                                              WHERE MONTH_NBR   = (   SELECT MONTH_NBR
-                                                                                        FROM DARTEDM.D_CALENDAR
-                                                                                       WHERE CALENDAR_DT = To_Date(
-                                                                                                               '31-07-2017',
-                                                                                                               'dd-mm-yyyy'))
-                                                                AND ACADEMIC_YR = (   SELECT ACADEMIC_YR
-                                                                                        FROM DARTEDM.D_CALENDAR
-                                                                                       WHERE CALENDAR_DT = To_Date(
-                                                                                                               '31-07-2017',
-                                                                                                               'dd-mm-yyyy'))) AND To_Date(
-                                                                                                                                       '31-07-2017',
-                                                                                                                                       'dd-mm-yyyy')
-                           AND   (CASE
-                                       WHEN a11.INPAT_OUTPAT_IND = 'O' THEN 'OUTPATIENT'
-                                       WHEN a11.INPAT_OUTPAT_IND = 'I' THEN 'INPATIENT'
-                                       ELSE '' END) IN ( 'OUTPATIENT' ))
-                       GROUP BY a12.EPIC_PROV_ID,
-                                CASE
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                         'NP/PA'
-                                     ELSE 'N/A' END,
-                                CASE
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                         'NP/PA'
-                                     ELSE 'N/A' END,
-                                a12.EPIC_PROV_ID,
-                                a12.DISEASE_GRP_DESCR,
-                                a12.DISEASE_SUBGRP_DESCR) pa12
-    ON (pa11.PROV_ID                                                     = pa12.PROV_ID)
-  FULL OUTER JOIN (   SELECT a12.EPIC_PROV_ID PROV_ID,
-                             CASE
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                      'NP/PA'
-                                  ELSE 'N/A' END PROV_TYPE_CD,
-                             CASE
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                      'NP/PA'
-                                  ELSE 'N/A' END PROV_TYPE_CD0,
-                             a12.EPIC_PROV_ID PROV_ID0,
-                             a12.DISEASE_GRP_DESCR DISEASE_GRP_FN_DEPT_DESCR,
-                             a12.DISEASE_SUBGRP_DESCR DISEASE_SUBGRP_DESCR,
-                             SUM(NVL(a11.TOT_WORK_RVU_AMT, 0)) CURRENTYEARINPATIENTRVU
-                        FROM (   SELECT RVU.PROV_DIM_SEQ,
-                                        RVU.PROC_DIM_SEQ,
-                                        BEG_MTH_DIM_SEQ,
-                                        INST_DIM_SEQ,
-                                        CLIN_DEPT_DIM_SEQ,
-                                        INPAT_OUTPAT_IND,
-                                        (CASE
-                                              WHEN PROV.PROV_TYPE_DESCR = 'PHYSICIAN' THEN -1
-                                              ELSE SUPER_PROV_DIM_SEQ END) SUPER_PROV_DIM_SEQ,
-                                        TOT_SERVICE_QTY,
-                                        TOT_WORK_RVU_AMT,
-                                        TOT_SERVICE_AMT,
-                                        RVU.DART_CREATE_DTTM
-                                   FROM DARTEDM.F_MTHLY_PROV_SERVICE_RVU RVU
-                                   JOIN DARTEDM.D_PROV PROV
-                                     ON RVU.PROV_DIM_SEQ = PROV.PROV_DIM_SEQ) a11
-                        LEFT OUTER JOIN DARTEDM.D_PROV a12
-                          ON (a11.PROV_DIM_SEQ                        = a12.PROV_DIM_SEQ)
-                        LEFT OUTER JOIN DARTEDM.D_CLIN_DEPT a13
-                          ON (a11.CLIN_DEPT_DIM_SEQ                   = a13.CLIN_DEPT_DIM_SEQ)
-                        LEFT OUTER JOIN DARTEDM.MV_RVU_REPORT_CATEGORY a14
-                          ON (   (CASE
-                                       WHEN a13.CLIN_DEPT_ABBREV IS NULL THEN 'N/A'
-                                       ELSE a13.CLIN_DEPT_ABBREV END) = (CASE
-                                                                              WHEN a14.CLIN_DEPT_ABBREV IS NULL THEN
-                                                                                  'N/A'
-                                                                              ELSE a14.CLIN_DEPT_ABBREV END)
-                           AND   a12.EPIC_PROV_ID                     = a14.EPIC_PROV_ID)
-                        LEFT OUTER JOIN DARTEDM.D_CALENDAR a15
-                          ON (a11.BEG_MTH_DIM_SEQ                     = a15.CALENDAR_DIM_SEQ)
-                       WHERE (   a12.INT_EXT_IND IN ( 'E' )
-                           AND   (CASE
-                                       WHEN TRIM(a14.DISEASE_GRP_ABBREV) IS NULL THEN 'N/A'
-                                       ELSE TRIM(a14.DISEASE_GRP_ABBREV) END) NOT IN ( 'STIPEND' )
-                           AND   a15.CALENDAR_DT BETWEEN (   SELECT MIN(CALENDAR_DT)
-                                                               FROM DARTEDM.D_CALENDAR
-                                                              WHERE ACADEMIC_YR = (   SELECT ACADEMIC_YR
-                                                                                        FROM DARTEDM.D_CALENDAR
-                                                                                       WHERE CALENDAR_DT = To_Date(
-                                                                                                               '31-07-2017',
-                                                                                                               'dd-mm-yyyy'))) AND To_Date(
-                                                                                                                                       '31-07-2017',
-                                                                                                                                       'dd-mm-yyyy')
-                           AND   (CASE
-                                       WHEN a11.INPAT_OUTPAT_IND = 'O' THEN 'OUTPATIENT'
-                                       WHEN a11.INPAT_OUTPAT_IND = 'I' THEN 'INPATIENT'
-                                       ELSE '' END) IN ( 'INPATIENT' ))
-                       GROUP BY a12.EPIC_PROV_ID,
-                                CASE
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                         'NP/PA'
-                                     ELSE 'N/A' END,
-                                CASE
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                         'NP/PA'
-                                     ELSE 'N/A' END,
-                                a12.EPIC_PROV_ID,
-                                a12.DISEASE_GRP_DESCR,
-                                a12.DISEASE_SUBGRP_DESCR) pa13
-    ON (COALESCE(pa11.PROV_ID, pa12.PROV_ID)                             = pa13.PROV_ID)
-  FULL OUTER JOIN (   SELECT a12.EPIC_PROV_ID PROV_ID,
-                             CASE
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                      'NP/PA'
-                                  ELSE 'N/A' END PROV_TYPE_CD,
-                             CASE
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                                  WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                      'NP/PA'
-                                  ELSE 'N/A' END PROV_TYPE_CD0,
-                             a12.EPIC_PROV_ID PROV_ID0,
-                             a12.DISEASE_GRP_DESCR DISEASE_GRP_FN_DEPT_DESCR,
-                             a12.DISEASE_SUBGRP_DESCR DISEASE_SUBGRP_DESCR,
-                             SUM(NVL(a11.TOT_WORK_RVU_AMT, 0)) CURRENTYEAROUTPATIENTRVU
-                        FROM (   SELECT RVU.PROV_DIM_SEQ,
-                                        RVU.PROC_DIM_SEQ,
-                                        BEG_MTH_DIM_SEQ,
-                                        INST_DIM_SEQ,
-                                        CLIN_DEPT_DIM_SEQ,
-                                        INPAT_OUTPAT_IND,
-                                        (CASE
-                                              WHEN PROV.PROV_TYPE_DESCR = 'PHYSICIAN' THEN -1
-                                              ELSE SUPER_PROV_DIM_SEQ END) SUPER_PROV_DIM_SEQ,
-                                        TOT_SERVICE_QTY,
-                                        TOT_WORK_RVU_AMT,
-                                        TOT_SERVICE_AMT,
-                                        RVU.DART_CREATE_DTTM
-                                   FROM DARTEDM.F_MTHLY_PROV_SERVICE_RVU RVU
-                                   JOIN DARTEDM.D_PROV PROV
-                                     ON RVU.PROV_DIM_SEQ = PROV.PROV_DIM_SEQ) a11
-                        LEFT OUTER JOIN DARTEDM.D_PROV a12
-                          ON (a11.PROV_DIM_SEQ                        = a12.PROV_DIM_SEQ)
-                        LEFT OUTER JOIN DARTEDM.D_CLIN_DEPT a13
-                          ON (a11.CLIN_DEPT_DIM_SEQ                   = a13.CLIN_DEPT_DIM_SEQ)
-                        LEFT OUTER JOIN DARTEDM.MV_RVU_REPORT_CATEGORY a14
-                          ON (   (CASE
-                                       WHEN a13.CLIN_DEPT_ABBREV IS NULL THEN 'N/A'
-                                       ELSE a13.CLIN_DEPT_ABBREV END) = (CASE
-                                                                              WHEN a14.CLIN_DEPT_ABBREV IS NULL THEN
-                                                                                  'N/A'
-                                                                              ELSE a14.CLIN_DEPT_ABBREV END)
-                           AND   a12.EPIC_PROV_ID                     = a14.EPIC_PROV_ID)
-                        LEFT OUTER JOIN DARTEDM.D_CALENDAR a15
-                          ON (a11.BEG_MTH_DIM_SEQ                     = a15.CALENDAR_DIM_SEQ)
-                       WHERE (   a12.INT_EXT_IND IN ( 'E' )
-                           AND   (CASE
-                                       WHEN TRIM(a14.DISEASE_GRP_ABBREV) IS NULL THEN 'N/A'
-                                       ELSE TRIM(a14.DISEASE_GRP_ABBREV) END) NOT IN ( 'STIPEND' )
-                           AND   a15.CALENDAR_DT BETWEEN (   SELECT MIN(CALENDAR_DT)
-                                                               FROM DARTEDM.D_CALENDAR
-                                                              WHERE ACADEMIC_YR = (   SELECT ACADEMIC_YR
-                                                                                        FROM DARTEDM.D_CALENDAR
-                                                                                       WHERE CALENDAR_DT = To_Date('31-07-2017','dd-mm-yyyy'))) 
-                           AND To_Date('31-07-2017','dd-mm-yyyy')
-                           AND (CASE
-                                       WHEN a11.INPAT_OUTPAT_IND = 'O' THEN 'OUTPATIENT'
-                                       WHEN a11.INPAT_OUTPAT_IND = 'I' THEN 'INPATIENT'
-                                       ELSE '' END) IN ( 'OUTPATIENT' ))
-                       GROUP BY a12.EPIC_PROV_ID,
-                                CASE
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                         'NP/PA'
-                                     ELSE 'N/A' END,
-                                CASE
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PHYSICIAN' ) THEN 'MD'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'PSYCHOLOGIST' ) THEN 'PSYC'
-                                     WHEN a12.PROV_TYPE_DESCR IN ( 'NURSE PRACTITIONER', 'PHYSICIAN ASSISTANT' ) THEN
-                                         'NP/PA'
-                                     ELSE 'N/A' END,
-                                a12.EPIC_PROV_ID,
-                                a12.DISEASE_GRP_DESCR,
-                                a12.DISEASE_SUBGRP_DESCR) pa14
-    ON (COALESCE(pa11.PROV_ID, pa12.PROV_ID, pa13.PROV_ID)               = pa14.PROV_ID)
-  LEFT JOIN DARTEDM.D_PROV a15
-    ON (COALESCE(pa11.PROV_ID, pa12.PROV_ID, pa13.PROV_ID, pa14.PROV_ID) = a15.EPIC_PROV_ID);
+SELECT DISTINCT
+    coalesce(
+        pa11.disease_grp_fn_dept_descr,
+        pa12.disease_grp_fn_dept_descr,
+        pa13.disease_grp_fn_dept_descr,
+        pa14.disease_grp_fn_dept_descr
+    ) disease_grp_fn_dept_descr,
+    coalesce(
+        pa11.disease_subgrp_descr,
+        pa12.disease_subgrp_descr,
+        pa13.disease_subgrp_descr,
+        pa14.disease_subgrp_descr
+    ) disease_subgrp_descr,
+    coalesce(
+        pa11.prov_id,
+        pa12.prov_id,
+        pa13.prov_id,
+        pa14.prov_id
+    ) prov_id,
+    coalesce(
+        pa11.prov_id0,
+        pa12.prov_id0,
+        pa13.prov_id0,
+        pa14.prov_id0
+    ) prov_id0,
+    a15.prov_nm prov_nm,
+    coalesce(
+        pa11.prov_type_cd,
+        pa12.prov_type_cd,
+        pa13.prov_type_cd,
+        pa14.prov_type_cd
+    ) prov_type_cd,
+    coalesce(
+        pa11.prov_type_cd0,
+        pa12.prov_type_cd0,
+        pa13.prov_type_cd0,
+        pa14.prov_type_cd0
+    ) prov_type_cd0,
+    pa11.currentmonthinpatientrvu currentmonthinpatientrvu,
+    pa12.currentmonthoutpatientrvu currentmonthoutpatientrvu,
+    ( nvl(pa11.currentmonthinpatientrvu,0) + nvl(pa12.currentmonthoutpatientrvu,0) ) currentmonthtotalrvu,
+    pa13.currentyearinpatientrvu currentyearinpatientrvu,
+    pa14.currentyearoutpatientrvu currentyearoutpatientrvu,
+    ( nvl(pa13.currentyearinpatientrvu,0) + nvl(pa14.currentyearoutpatientrvu,0) ) currentyeartotalrvu
+FROM
+    (
+        SELECT
+            a12.epic_prov_id prov_id,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'PSYCHOLOGIST'
+                    ) THEN 'PSYC'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd0,
+            a12.epic_prov_id prov_id0,
+            a12.disease_grp_descr disease_grp_fn_dept_descr,
+            a12.disease_subgrp_descr disease_subgrp_descr,
+            SUM(nvl(a11.tot_work_rvu_amt,0) ) currentmonthinpatientrvu
+        FROM
+            (
+                SELECT
+                    rvu.prov_dim_seq,
+                    rvu.proc_dim_seq,
+                    beg_mth_dim_seq,
+                    inst_dim_seq,
+                    clin_dept_dim_seq,
+                    inpat_outpat_ind,
+                    (
+                        CASE
+                            WHEN prov.prov_type_descr = 'PHYSICIAN' THEN -1
+                            ELSE super_prov_dim_seq
+                        END
+                    ) super_prov_dim_seq,
+                    tot_service_qty,
+                    tot_work_rvu_amt,
+                    tot_service_amt,
+                    rvu.dart_create_dttm
+                FROM
+                    dartedm.f_mthly_prov_service_rvu rvu
+                    JOIN dartedm.d_prov prov ON rvu.prov_dim_seq = prov.prov_dim_seq
+            ) a11
+            LEFT JOIN dartedm.d_prov a12 ON (
+                a11.prov_dim_seq = a12.prov_dim_seq
+            )
+            LEFT JOIN dartedm.d_clin_dept a13 ON (
+                a11.clin_dept_dim_seq = a13.clin_dept_dim_seq
+            )
+            LEFT JOIN dartedm.mv_rvu_report_category a14 ON (
+                    (
+                        CASE
+                            WHEN a13.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a13.clin_dept_abbrev
+                        END
+                    ) = (
+                        CASE
+                            WHEN a14.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a14.clin_dept_abbrev
+                        END
+                    )
+                AND
+                    a12.epic_prov_id = a14.epic_prov_id
+            )
+            LEFT JOIN dartedm.d_calendar a15 ON (
+                a11.beg_mth_dim_seq = a15.calendar_dim_seq
+            )
+        WHERE
+            (
+                    a12.int_ext_ind IN (
+                        'E'
+                    )
+                AND
+                    (
+                        CASE
+                            WHEN TRIM(a14.disease_grp_abbrev) IS NULL THEN 'N/A'
+                            ELSE TRIM(a14.disease_grp_abbrev)
+                        END
+                    ) NOT IN (
+                        'STIPEND'
+                    )
+                AND
+                    a15.calendar_dt BETWEEN (
+                        SELECT
+                            MIN(calendar_dt)
+                        FROM
+                            dartedm.d_calendar
+                        WHERE
+                                month_nbr = (
+                                    SELECT
+                                        month_nbr
+                                    FROM
+                                        dartedm.d_calendar
+                                    WHERE
+                                        calendar_dt = TO_DATE('31-07-2017','dd-mm-yyyy')
+                                )
+                            AND
+                                academic_yr = (
+                                    SELECT
+                                        academic_yr
+                                    FROM
+                                        dartedm.d_calendar
+                                    WHERE
+                                        calendar_dt = TO_DATE('31-07-2017','dd-mm-yyyy')
+                                )
+                    ) AND TO_DATE('31-07-2017','dd-mm-yyyy')
+                AND
+                    (
+                        CASE
+                            WHEN a11.inpat_outpat_ind = 'O' THEN 'OUTPATIENT'
+                            WHEN a11.inpat_outpat_ind = 'I' THEN 'INPATIENT'
+                            ELSE ''
+                        END
+                    ) IN (
+                        'INPATIENT'
+                    )
+            )
+        GROUP BY
+            a12.epic_prov_id,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'PSYCHOLOGIST'
+                ) THEN 'PSYC'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            a12.epic_prov_id,
+            a12.disease_grp_descr,
+            a12.disease_subgrp_descr
+    ) pa11
+    FULL OUTER JOIN (
+        SELECT
+            a12.epic_prov_id prov_id,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'PSYCHOLOGIST'
+                    ) THEN 'PSYC'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd0,
+            a12.epic_prov_id prov_id0,
+            a12.disease_grp_descr disease_grp_fn_dept_descr,
+            a12.disease_subgrp_descr disease_subgrp_descr,
+            SUM(nvl(a11.tot_work_rvu_amt,0) ) currentmonthoutpatientrvu
+        FROM
+            (
+                SELECT
+                    rvu.prov_dim_seq,
+                    rvu.proc_dim_seq,
+                    beg_mth_dim_seq,
+                    inst_dim_seq,
+                    clin_dept_dim_seq,
+                    inpat_outpat_ind,
+                    (
+                        CASE
+                            WHEN prov.prov_type_descr = 'PHYSICIAN' THEN -1
+                            ELSE super_prov_dim_seq
+                        END
+                    ) super_prov_dim_seq,
+                    tot_service_qty,
+                    tot_work_rvu_amt,
+                    tot_service_amt,
+                    rvu.dart_create_dttm
+                FROM
+                    dartedm.f_mthly_prov_service_rvu rvu
+                    JOIN dartedm.d_prov prov ON rvu.prov_dim_seq = prov.prov_dim_seq
+            ) a11
+            LEFT OUTER JOIN dartedm.d_prov a12 ON (
+                a11.prov_dim_seq = a12.prov_dim_seq
+            )
+            LEFT OUTER JOIN dartedm.d_clin_dept a13 ON (
+                a11.clin_dept_dim_seq = a13.clin_dept_dim_seq
+            )
+            LEFT OUTER JOIN dartedm.mv_rvu_report_category a14 ON (
+                    (
+                        CASE
+                            WHEN a13.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a13.clin_dept_abbrev
+                        END
+                    ) = (
+                        CASE
+                            WHEN a14.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a14.clin_dept_abbrev
+                        END
+                    )
+                AND
+                    a12.epic_prov_id = a14.epic_prov_id
+            )
+            LEFT OUTER JOIN dartedm.d_calendar a15 ON (
+                a11.beg_mth_dim_seq = a15.calendar_dim_seq
+            )
+        WHERE
+            (
+                    a12.int_ext_ind IN (
+                        'E'
+                    )
+                AND
+                    (
+                        CASE
+                            WHEN TRIM(a14.disease_grp_abbrev) IS NULL THEN 'N/A'
+                            ELSE TRIM(a14.disease_grp_abbrev)
+                        END
+                    ) NOT IN (
+                        'STIPEND'
+                    )
+                AND
+                    a15.calendar_dt BETWEEN (
+                        SELECT
+                            MIN(calendar_dt)
+                        FROM
+                            dartedm.d_calendar
+                        WHERE
+                                month_nbr = (
+                                    SELECT
+                                        month_nbr
+                                    FROM
+                                        dartedm.d_calendar
+                                    WHERE
+                                        calendar_dt = TO_DATE('31-07-2017','dd-mm-yyyy')
+                                )
+                            AND
+                                academic_yr = (
+                                    SELECT
+                                        academic_yr
+                                    FROM
+                                        dartedm.d_calendar
+                                    WHERE
+                                        calendar_dt = TO_DATE('31-07-2017','dd-mm-yyyy')
+                                )
+                    ) AND TO_DATE('31-07-2017','dd-mm-yyyy')
+                AND
+                    (
+                        CASE
+                            WHEN a11.inpat_outpat_ind = 'O' THEN 'OUTPATIENT'
+                            WHEN a11.inpat_outpat_ind = 'I' THEN 'INPATIENT'
+                            ELSE ''
+                        END
+                    ) IN (
+                        'OUTPATIENT'
+                    )
+            )
+        GROUP BY
+            a12.epic_prov_id,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'PSYCHOLOGIST'
+                ) THEN 'PSYC'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            a12.epic_prov_id,
+            a12.disease_grp_descr,
+            a12.disease_subgrp_descr
+    ) pa12 ON (
+        pa11.prov_id = pa12.prov_id
+    )
+    FULL OUTER JOIN (
+        SELECT
+            a12.epic_prov_id prov_id,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'PSYCHOLOGIST'
+                    ) THEN 'PSYC'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd0,
+            a12.epic_prov_id prov_id0,
+            a12.disease_grp_descr disease_grp_fn_dept_descr,
+            a12.disease_subgrp_descr disease_subgrp_descr,
+            SUM(nvl(a11.tot_work_rvu_amt,0) ) currentyearinpatientrvu
+        FROM
+            (
+                SELECT
+                    rvu.prov_dim_seq,
+                    rvu.proc_dim_seq,
+                    beg_mth_dim_seq,
+                    inst_dim_seq,
+                    clin_dept_dim_seq,
+                    inpat_outpat_ind,
+                    (
+                        CASE
+                            WHEN prov.prov_type_descr = 'PHYSICIAN' THEN -1
+                            ELSE super_prov_dim_seq
+                        END
+                    ) super_prov_dim_seq,
+                    tot_service_qty,
+                    tot_work_rvu_amt,
+                    tot_service_amt,
+                    rvu.dart_create_dttm
+                FROM
+                    dartedm.f_mthly_prov_service_rvu rvu
+                    JOIN dartedm.d_prov prov ON rvu.prov_dim_seq = prov.prov_dim_seq
+            ) a11
+            LEFT OUTER JOIN dartedm.d_prov a12 ON (
+                a11.prov_dim_seq = a12.prov_dim_seq
+            )
+            LEFT OUTER JOIN dartedm.d_clin_dept a13 ON (
+                a11.clin_dept_dim_seq = a13.clin_dept_dim_seq
+            )
+            LEFT OUTER JOIN dartedm.mv_rvu_report_category a14 ON (
+                    (
+                        CASE
+                            WHEN a13.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a13.clin_dept_abbrev
+                        END
+                    ) = (
+                        CASE
+                            WHEN a14.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a14.clin_dept_abbrev
+                        END
+                    )
+                AND
+                    a12.epic_prov_id = a14.epic_prov_id
+            )
+            LEFT OUTER JOIN dartedm.d_calendar a15 ON (
+                a11.beg_mth_dim_seq = a15.calendar_dim_seq
+            )
+        WHERE
+            (
+                    a12.int_ext_ind IN (
+                        'E'
+                    )
+                AND
+                    (
+                        CASE
+                            WHEN TRIM(a14.disease_grp_abbrev) IS NULL THEN 'N/A'
+                            ELSE TRIM(a14.disease_grp_abbrev)
+                        END
+                    ) NOT IN (
+                        'STIPEND'
+                    )
+                AND
+                    a15.calendar_dt BETWEEN (
+                        SELECT
+                            MIN(calendar_dt)
+                        FROM
+                            dartedm.d_calendar
+                        WHERE
+                            academic_yr = (
+                                SELECT
+                                    academic_yr
+                                FROM
+                                    dartedm.d_calendar
+                                WHERE
+                                    calendar_dt = TO_DATE('31-07-2017','dd-mm-yyyy')
+                            )
+                    ) AND TO_DATE('31-07-2017','dd-mm-yyyy')
+                AND
+                    (
+                        CASE
+                            WHEN a11.inpat_outpat_ind = 'O' THEN 'OUTPATIENT'
+                            WHEN a11.inpat_outpat_ind = 'I' THEN 'INPATIENT'
+                            ELSE ''
+                        END
+                    ) IN (
+                        'INPATIENT'
+                    )
+            )
+        GROUP BY
+            a12.epic_prov_id,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'PSYCHOLOGIST'
+                ) THEN 'PSYC'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            a12.epic_prov_id,
+            a12.disease_grp_descr,
+            a12.disease_subgrp_descr
+    ) pa13 ON (
+        coalesce(
+            pa11.prov_id,
+            pa12.prov_id
+        ) = pa13.prov_id
+    )
+    FULL OUTER JOIN (
+        SELECT
+            a12.epic_prov_id prov_id,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd,
+                CASE
+                    WHEN a12.prov_type_descr IN (
+                        'PHYSICIAN'
+                    ) THEN 'MD'
+                    WHEN a12.prov_type_descr IN (
+                        'PSYCHOLOGIST'
+                    ) THEN 'PSYC'
+                    WHEN a12.prov_type_descr IN (
+                        'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                    ) THEN 'NP/PA'
+                    ELSE 'N/A'
+                END
+            prov_type_cd0,
+            a12.epic_prov_id prov_id0,
+            a12.disease_grp_descr disease_grp_fn_dept_descr,
+            a12.disease_subgrp_descr disease_subgrp_descr,
+            SUM(nvl(a11.tot_work_rvu_amt,0) ) currentyearoutpatientrvu
+        FROM
+            (
+                SELECT
+                    rvu.prov_dim_seq,
+                    rvu.proc_dim_seq,
+                    beg_mth_dim_seq,
+                    inst_dim_seq,
+                    clin_dept_dim_seq,
+                    inpat_outpat_ind,
+                    (
+                        CASE
+                            WHEN prov.prov_type_descr = 'PHYSICIAN' THEN -1
+                            ELSE super_prov_dim_seq
+                        END
+                    ) super_prov_dim_seq,
+                    tot_service_qty,
+                    tot_work_rvu_amt,
+                    tot_service_amt,
+                    rvu.dart_create_dttm
+                FROM
+                    dartedm.f_mthly_prov_service_rvu rvu
+                    JOIN dartedm.d_prov prov ON rvu.prov_dim_seq = prov.prov_dim_seq
+            ) a11
+            LEFT OUTER JOIN dartedm.d_prov a12 ON (
+                a11.prov_dim_seq = a12.prov_dim_seq
+            )
+            LEFT OUTER JOIN dartedm.d_clin_dept a13 ON (
+                a11.clin_dept_dim_seq = a13.clin_dept_dim_seq
+            )
+            LEFT OUTER JOIN dartedm.mv_rvu_report_category a14 ON (
+                    (
+                        CASE
+                            WHEN a13.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a13.clin_dept_abbrev
+                        END
+                    ) = (
+                        CASE
+                            WHEN a14.clin_dept_abbrev IS NULL THEN 'N/A'
+                            ELSE a14.clin_dept_abbrev
+                        END
+                    )
+                AND
+                    a12.epic_prov_id = a14.epic_prov_id
+            )
+            LEFT OUTER JOIN dartedm.d_calendar a15 ON (
+                a11.beg_mth_dim_seq = a15.calendar_dim_seq
+            )
+        WHERE
+            (
+                    a12.int_ext_ind IN (
+                        'E'
+                    )
+                AND
+                    (
+                        CASE
+                            WHEN TRIM(a14.disease_grp_abbrev) IS NULL THEN 'N/A'
+                            ELSE TRIM(a14.disease_grp_abbrev)
+                        END
+                    ) NOT IN (
+                        'STIPEND'
+                    )
+                AND
+                    a15.calendar_dt BETWEEN (
+                        SELECT
+                            MIN(calendar_dt)
+                        FROM
+                            dartedm.d_calendar
+                        WHERE
+                            academic_yr = (
+                                SELECT
+                                    academic_yr
+                                FROM
+                                    dartedm.d_calendar
+                                WHERE
+                                    calendar_dt = TO_DATE('31-07-2017','dd-mm-yyyy')
+                            )
+                    ) AND TO_DATE('31-07-2017','dd-mm-yyyy')
+                AND
+                    (
+                        CASE
+                            WHEN a11.inpat_outpat_ind = 'O' THEN 'OUTPATIENT'
+                            WHEN a11.inpat_outpat_ind = 'I' THEN 'INPATIENT'
+                            ELSE ''
+                        END
+                    ) IN (
+                        'OUTPATIENT'
+                    )
+            )
+        GROUP BY
+            a12.epic_prov_id,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            CASE
+                WHEN a12.prov_type_descr IN (
+                    'PHYSICIAN'
+                ) THEN 'MD'
+                WHEN a12.prov_type_descr IN (
+                    'PSYCHOLOGIST'
+                ) THEN 'PSYC'
+                WHEN a12.prov_type_descr IN (
+                    'NURSE PRACTITIONER','PHYSICIAN ASSISTANT'
+                ) THEN 'NP/PA'
+                ELSE 'N/A'
+            END,
+            a12.epic_prov_id,
+            a12.disease_grp_descr,
+            a12.disease_subgrp_descr
+    ) pa14 ON (
+        coalesce(
+            pa11.prov_id,
+            pa12.prov_id,
+            pa13.prov_id
+        ) = pa14.prov_id
+    )
+    LEFT JOIN dartedm.d_prov a15 ON (
+        coalesce(
+            pa11.prov_id,
+            pa12.prov_id,
+            pa13.prov_id,
+            pa14.prov_id
+        ) = a15.epic_prov_id
+    );
