@@ -1,23 +1,15 @@
-/*RVU Adult Medical Oncology*/
-/*Main Tables
-  DART_ODS.dartods.ods_hart_charge_data            --Inpatient, service_dt from 07-NOV-11 to 27-JAN-17
-  DART_ODS.dart_ods.ods_edw_fin_prof_bill_transact --Inpatient, svcdttm from 28-JAN-17 going forward 
-  DART_ODS.dartods.ods_bwpo_charge_data            --Inpatient
-  DART_ODS.dart_ods.ods_edw_fin_hosp_transact      --Outpatient, svc_dttm from 11-APR-14 going forward
-*/
-
-SELECT COUNT(*) FROM (
 SELECT 
-    t1.txn_id AS Transaction_ID,
+    TO_NUMBER(t1.txn_id) AS Transaction_ID,
     'Inpatient' AS PatientTypeInd,
     t1.txn_cd AS CPT_ID,
     t2.cpt_cd_descr AS CPT_NM,
---    t1.bill_prov_npi AS BillProv_NPI,
     t6.prov_id AS BillProv_ID,
     t1.bill_prov_nm AS BillProv_NM,
-    t5.rvu,
+    t6.prov_type_descr AS BillProv_TP,
+    t6.prov_dx_grp_dv AS DiseaseCenter,
+    t5.RVU,
 --    DiseaseGroup
-    1 AS ServiceQuantity,
+--    1 AS ServiceQuantity,
 --    cFTE
     t1.service_dt AS Service_DT,
     t1.mrn AS DFCI_MRN,
@@ -28,7 +20,8 @@ SELECT
     t4.super_prov_id AS SupervisingProv_ID,
     t4.prov_nm AS SupervisingProv_NM,
     t1.bill_prov_dept_nm AS Dept_NM,
-    t1.alt_mrn_site_nm AS Place_of_SVC_NM
+    t1.alt_mrn_site_nm AS Place_of_SVC_NM,
+    NULL AS proc_id
 FROM
     dartods.ods_hart_charge_data t1
     LEFT JOIN DARTEDM.D_CPT_CD@DARTPRD t2 ON t1.txn_cd=t2.cpt_cd
@@ -41,11 +34,9 @@ FROM
          ON t1.txn_cd=t5.cpt_cd AND 
             EXTRACT(YEAR FROM t1.service_dt)=TO_NUMBER(substr(t5.calendar_dim_seq,1,4))
     LEFT JOIN dart_ods.mv_coba_prov t6 ON t1.bill_prov_npi=t6.prov_npi_id
-WHERE t1.bill_prov_dept_nm='MEDICAL ONCOLOGY'
-);
 
-/*Total 207086 changes daily*/    
-SELECT DISTINCT Dept_ID, Dept_NM FROM (
+UNION 
+
 SELECT
     t1.transact_id AS Transaction_ID,
     'Inpatient' AS PatientTypeInd,
@@ -55,7 +46,7 @@ SELECT
     t7.prov_nm AS BillProv_NM,
     t10.RVU,
 --    DiseaseGroup
-    t1.proc_cnt AS ServiceQuantity,
+--    1 AS ServiceQuantity,
 --    cFTE
     t1.svc_dttm AS Service_DT,
     t5.pt_dfci_mrn AS DFCI_MRN,
@@ -65,9 +56,7 @@ SELECT
          END AS Patient_NM,
     t8.super_prov_id AS SupervisingProv_ID,
     t9.prov_nm as SupervisingProv_NM,
---    t1.dept_id AS Dept_ID,
     t1.dept_descr AS Dept_NM,
---    t1.place_of_svc_id AS Place_of_SVC_ID,
     t3.place_of_svc_nm AS Place_of_SVC_NM,
     t1.proc_id
 FROM
@@ -83,32 +72,10 @@ FROM
     LEFT JOIN (SELECT DISTINCT t1.RVU, t2.cpt_cd, t1.calendar_dim_seq FROM dartedm.f_cpt_measure@DARTPRD t1 LEFT JOIN dartedm.d_cpt_cd@DARTPRD t2 ON t1.cpt_dim_seq=t2.cpt_dim_seq WHERE t1.RVU is not null) t10 
          ON t1.cpt_cd=t10.cpt_cd AND 
             extract(year from t1.svc_dttm)=TO_NUMBER(substr(t10.calendar_dim_seq,1,4))
-WHERE t1.dept_id=14010010364
-)
-;
+WHERE t1.dept_id=14010010364 --DF Medical Oncology
 
-/*Total 102988 */
-SELECT COUNT(*) FROM (
-SELECT
-    t1.txn_detail_id AS Transaction_ID,
-    t1.cpt_cd AS CPT_ID,
-    t2.cpt_cd_descr AS CPT_NM,
-    t1.npi AS BillProv_NPI,
-    t1.billing_prov_nm AS BillProv_NM, 
---    t1.volume_amt AS ServiceQuantity,
-    t1.service_dt AS Service_DT,
-    t1.bwh_mrn AS BWH_MRN,
-    t1.patient_nm AS Patient_NM
-FROM
-    dartods.ods_bwpo_charge_data t1
-    LEFT JOIN DARTEDM.D_CPT_CD@DARTPRD t2 ON t1.cpt_cd=t2.cpt_cd
-ORDER BY t1.SERVICE_DT
-)
-;
+UNION
 
-/*total 23276114*/
-SELECT DISTINCT Place_of_SVC_NM FROM(
-/*Outpatient*/
 SELECT
     t1.transact_id AS Transaction_ID,
     t1.hosp_acct_cls_descr AS PatientTypeInd,
@@ -119,7 +86,7 @@ SELECT
     --disease group
     t10.RVU,
     t1.svc_dttm AS Service_DT,
-    1 AS ServiceQuantity,
+--    1 AS ServiceQuantity,
     --cFTE
     t2.pt_dfci_mrn AS DFCI_MRN,
     t2.pt_bwh_mrn AS BWH_MRN,
@@ -128,9 +95,7 @@ SELECT
          END AS Patient_NM,
     t6.super_prov_id AS SupervisingProv_ID,
     t7.prov_nm as SupervisingProv_NM,
---    t1.dept_id AS Dept_ID,
     t1.dept_descr AS Dept_NM,
---    t1.place_of_svc_id AS Place_of_SVC_ID,
     t8.place_of_svc_nm AS Place_of_SVC_NM,
     t1.proc_id
 FROM
@@ -146,7 +111,5 @@ FROM
     LEFT JOIN (SELECT DISTINCT t1.RVU, t2.cpt_cd, t1.calendar_dim_seq FROM dartedm.f_cpt_measure@DARTPRD t1 LEFT JOIN dartedm.d_cpt_cd@DARTPRD t2 ON t1.cpt_dim_seq=t2.cpt_dim_seq WHERE t1.RVU is not null) t10 
          ON t1.cpt=t10.cpt_cd AND 
             extract(year from t1.svc_dttm)=TO_NUMBER(substr(t10.calendar_dim_seq,1,4))
-ORDER BY t1.svc_dttm
-)   
+--WHERE t1.dept_id=14010010364 --DF Medical Oncology
 ;
-
