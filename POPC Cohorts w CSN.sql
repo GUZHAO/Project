@@ -19,8 +19,6 @@ SELECT SYSDATETIME() AS CreationDTS,
 	   ttp1.Chaplain_CNT,
        ttp2.SocialWorker_CNT,
        pe.DepartmentDSC,
-       pe.HospitalAdmitDTS,     /*Provided in the dataset, but does this make sense*/
-       pe.HospitalDischargeDTS, /*Provided in the dataset, but does this make sense*/
 	   pe.HospitalAdmitTypeDSC,
        m1.Medication AS MSCONTIN_Ind,
        m2.Medication AS OXYCONTI_Ind,
@@ -257,9 +255,9 @@ FROM Epic.Encounter.PatientEncounter_DFCI pe
     ) AS uc
         ON pe.PatientID = uc.PatientID
            AND CAST(uc.ServiceDTS AS DATE) = CAST(pe.AppointmentDTS AS DATE)*/
-WHERE pe.DepartmentDSC IN ( 'DF PALLIATIVE CARE', 'DF PSYCH ONC' )
-      AND pe.AppointmentStatusDSC IN ( 'Completed', 'Arrived' )
-      AND pe.AppointmentDTS
+WHERE --pe.DepartmentDSC IN ( 'DF PALLIATIVE CARE', 'DF PSYCH ONC' )
+      --AND pe.AppointmentStatusDSC IN ( 'Completed', 'Arrived' )
+      pe.AppointmentDTS
       BETWEEN @startdate AND @enddate;
 
 --IPCU Stay-----------------------------------------
