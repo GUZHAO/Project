@@ -1,32 +1,38 @@
-SELECT t1.pt_id, t1.pt_enc_id, t1.contact_dts, t2.svc_dttm, t2.pt_enc_id, t2.cpt FROM (
 SELECT
+    t1.pt_id,
+    t13.PT_DFCI_MRN,
+    t13.PT_BWH_MRN,
     t1.pt_enc_id,
     t1.appt_dttm AS appt_dts,
     t1.dept_descr AS department_nm,
     t1.enc_epic_prov_id AS enc_prov_id,
     t1.cont_dttm AS contact_dts,
+    t14.event_dttm AS ed_event_dttm,
+    t1.hosp_admit_dttm,
+    t1.hosp_dischg_dttm,
     t1.hosp_admit_typ_descr AS hosp_admit_tp,
     t6.prov_nm AS enc_prov_nm,
-    EXTRACT(YEAR FROM t1.cont_dttm) AS dts_yr,
-    EXTRACT(MONTH FROM t1.cont_dttm) AS dts_m,
-    t1.pt_id,
---    t1.pt_dfci_mrn,
---    t1.pt_bwh_mrn,
     t2.molst_ind,--patient level
     t3.healthcareproxy_ind,--patient level
     t4.opioid_ind,
     t5.laxative_ind,
     t6.prov_dx_grp_dv AS dis_ctr_nm,
+    t6.prov_dx_grp_dv AS dis_ctr_nm_ref,
+    t6.prov_dx_grp_dv AS dis_ctr_nm_att,
     t7.chaplain_cnt,
     t8.socialworker_cnt,
     t9.pt_death_dt,--patient level
     t10.chemo_ind,--patient level
+    t10.ordg_dttm AS chemo_ordg_dttm,--patient level
     t9.pt_birth_dt,--patient level
     t9.pt_race_1_nm,--patient level
     t9.pt_gender_nm,--patient level
     t9.pt_perm_zip_cd,--patient level
+    t9.pt_age_dv,--patient level
     t13.enc_refer_prov_id,
     t13.enc_refer_prov_nm,
+    t13.enc_attndg_prov_id,
+    t13.enc_attndg_prov_nm,
     t13.enc_loc_nm_dv AS pt_loc_nm,
     t13.enc_vis_typ_descr AS visit_ty
 FROM
@@ -66,19 +72,12 @@ FROM
         FROM
             dart_ods.ods_edw_ord_med
         WHERE
-                med_descr LIKE '%MS CONTIN%'
-            OR
-                med_descr LIKE '%OXYCONTI%'
-            OR
-                med_descr LIKE '%FENTANYL%PATCH%'
-            OR
-                med_descr LIKE '%METHADONE%'
-            OR
-                med_descr LIKE '%MORPHINE%'
-            OR
-                med_descr LIKE '%OXYCODONE%'
-            OR
-                med_descr LIKE '%DILAUDID%'
+   Med_DESCR LIKE '%MS CONTIN%' 
+OR Med_DESCR LIKE '%morphine%'
+OR Med_DESCR LIKE '%OXYCODON%' 
+OR Med_DESCR LIKE '%FENTANYL%PATCH%' 
+OR Med_DESCR LIKE '%METHADONE%'
+OR Med_DESCR LIKE '%DILAUDID%'
         GROUP BY
             pt_enc_id,
             1
@@ -90,19 +89,14 @@ FROM
         FROM
             dart_ods.ods_edw_ord_med
         WHERE
-                med_descr LIKE '%SENNA%'
-            OR
-                med_descr LIKE '%MIRALAX%'
-            OR
-                med_descr LIKE '%COLACE%'
-            OR
-                med_descr LIKE '%MILK OF MAGNESIA%'
-            OR
-                med_descr LIKE '%LACTULOSE%'
-            OR
-                med_descr LIKE '%BISACODYL%'
-            OR
-                med_descr LIKE '%MAGNESIUM%CITRATE%'
+   Med_DESCR LIKE '%polyethylene glycol%'
+or Med_DESCR LIKE '%SENNA%' 
+or Med_DESCR LIKE '%COLACE%' 
+or Med_DESCR LIKE '%docusate%'
+or Med_DESCR LIKE '%MILK OF MAGNESIA%'
+or Med_DESCR LIKE '%BISACODYL%'
+or Med_DESCR LIKE '%MAGNESIUM%CITRATE%' 
+or Med_DESCR LIKE '%LACTULOSE%'
         GROUP BY
             pt_enc_id,
             1
@@ -136,13 +130,14 @@ FROM
     LEFT JOIN (
         SELECT DISTINCT
             t1.pt_id,
+            t1.ordg_dttm,
             1 AS chemo_ind
         FROM
             dart_ods.ods_edw_ord_proc t1
             LEFT JOIN dartedm.d_cpt_cd@dartprd t2 ON t1.cpt = t2.cpt_cd
         WHERE
             t1.cpt IN (
-                '51720','C9004','C9006','C9020','C9021','C9025','C9027','C9106','C9110','C9117','C9118','C9119','C9120','C9127','C9129','C9131','C9207'
+'51720','C9004','C9006','C9020','C9021','C9025','C9027','C9106','C9110','C9117','C9118','C9119','C9120','C9127','C9129','C9131','C9207'
 ,'C9213','C9214','C9215','C9216','C9218','C9233','C9235','C9237','C9239','C9240','C9243','C9257','C9259','C9260','C9265','C9272',
 'C9273','C9276','C9280','C9284','C9287','C9289','C9292','C9295','C9296','C9410','C9414','C9415','C9417','C9418','C9419','C9420','C9421'
 ,'C9422','C9423','C9424','C9425','C9426','C9427','C9428','C9429','C9430','C9431','C9432','C9433','C9435','C9436','C9437','C9438',
@@ -165,6 +160,11 @@ FROM
     ) t10 ON t1.pt_id = t10.pt_id
     LEFT JOIN dart_ods.ods_edw_enc_pt_enc t11 ON t1.pt_enc_id = t11.pt_enc_id
     LEFT JOIN dart_ods.mv_coba_pt_enc t13 ON t1.pt_enc_id = t13.enc_id_csn
+    LEFT JOIN dart_ods.mv_coba_prov t6 ON t13.enc_refer_prov_id = t6.prov_id
+    LEFT JOIN dart_ods.mv_coba_prov t6 ON t13.enc_attndg_prov_id = t6.prov_id
+    LEFT JOIN (SELECT event_dttm, pt_id, pt_enc_id
+                FROM dart_ods.ods_edw_enc_adt
+                WHERE pt_cls_cd='103' AND event_dttm>'01-OCT-2015' AND dept_id=10030010039 AND adt_event_typ_descr='ADMISSION' AND adt_event_subtyp_descr^='CANCELED') t14 ON t1.pt_enc_id=t14.pt_enc_id
 WHERE
         t1.pt_id IN (
             SELECT
@@ -182,36 +182,5 @@ WHERE
         '01-OCT-15' <= t1.cont_dttm
     AND
         t1.cont_dttm <= '30-NOV-17'
-        ) t1
-LEFT JOIN 
-(
-SELECT DISTINCT t1.cpt, t1.SVC_DTTM, t1.HOSP_ACCT_ID, t1.PT_ENC_ID
-FROM dart_ods.ods_edw_fin_hosp_transact t1
-WHERE t1.SVC_DTTM>='01-OCT-15' AND CPT IN
-(
-'99221',
-'99222',
-'99223',
-'99356',
-'99357',
-'99231',
-'99232',
-'99233',
-'99201',
-'99202',
-'99203',
-'99204',
-'99205',
-'99211',
-'99212',
-'99213',
-'99214',
-'99215',
-'99354',
-'99355',
-'99497',
-'99498'
-)
-) t2 ON t1.pt_enc_id=t2.pt_enc_id and t1.contact_dts=t2.SVC_DTTM
 ;
         

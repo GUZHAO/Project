@@ -1,14 +1,15 @@
 /*Inpatient Pre-Epic*/
-CREATE TABLE COBATABLEAU_USER.RVU AS
 SELECT
     t1.txn_id AS transaction_id,
     'Inpatient' AS patienttypeind,
     t1.txn_cd AS cpt_id,
     t2.cpt_cd_descr AS cpt_nm,
     t6.prov_id AS billprov_id,
+    t7.opr_id AS billprov_phsid,
     t1.bill_prov_nm AS billprov_nm,
     t6.prov_type_descr AS billprov_tp,
     t6.prov_dx_grp_dv AS diseasecenter,
+    t6.prov_dx_site_dv AS site,
     1 AS servicequantity,
     t5.rvu,
     t7.distrib_pct AS cfte,
@@ -78,6 +79,7 @@ FROM
     LEFT JOIN (
         SELECT
             prov.epic_prov_id,
+            login.opr_id,
             cal.academic_yr,
             round(
                 SUM(hrs.std_hrs_alloc * alloc.distrib_pct / 100 / yr_days.no_of_days) * 100,
@@ -107,7 +109,8 @@ FROM
             alloc.active_ind = 'A'
         GROUP BY
             cal.academic_yr,
-            prov.epic_prov_id
+            prov.epic_prov_id,
+            login.opr_id
         ORDER BY prov.epic_prov_id
     ) t7 ON
         t6.prov_id = t7.epic_prov_id
@@ -123,9 +126,11 @@ SELECT
     t1.cpt_cd AS cpt_id,
     t6.cpt_cd_descr AS cpt_nm,
     t1.bill_prov_id AS billprov_id,
+    t11.opr_id AS billprov_phsid,
     t7.prov_nm AS billprov_nm,
     t7.prov_type_descr AS billprov_tp,
     t7.prov_dx_grp_dv AS diseasecenter,
+    t7.prov_dx_site_dv AS site,
     1 AS servicequantity,
     t10.rvu,
     t11.distrib_pct AS cfte,
@@ -183,6 +188,7 @@ FROM
         SELECT
             prov.epic_prov_id,
             cal.academic_yr,
+            login.opr_id,
             round(
                 SUM(hrs.std_hrs_alloc * alloc.distrib_pct / 100 / yr_days.no_of_days) * 100,
                 3
@@ -211,7 +217,8 @@ FROM
             alloc.active_ind = 'A'
         GROUP BY
             cal.academic_yr,
-            prov.epic_prov_id
+            prov.epic_prov_id,
+            login.opr_id
         ORDER BY prov.epic_prov_id
     ) t11 ON
         t1.bill_prov_id = t11.epic_prov_id
@@ -231,6 +238,7 @@ SELECT
             ELSE bill.epic_prov_id
         END
     AS billprov_id,
+    t11.opr_id AS billprov_phsid,
         CASE
             WHEN bill.epic_prov_id =-1 THEN NULL
             ELSE bill.prov_nm
@@ -238,6 +246,7 @@ SELECT
     AS billprov_nm,
     bill.prov_type_descr AS billprov_tp,
     bill.disease_grp_descr AS diseasecenter,
+    t12.prov_dx_site_dv AS site,
     fps.service_qty AS servicequantity,
     cpt.rvu,
     t11.distrib_pct AS cfte,
@@ -306,6 +315,7 @@ FROM
         SELECT
             prov.epic_prov_id,
             cal.academic_yr,
+            login.opr_id,
             round(
                 SUM(hrs.std_hrs_alloc * alloc.distrib_pct / 100 / yr_days.no_of_days) * 100,
                 3
@@ -334,12 +344,14 @@ FROM
             alloc.active_ind = 'A'
         GROUP BY
             cal.academic_yr,
-            prov.epic_prov_id
+            prov.epic_prov_id,
+            login.opr_id
         ORDER BY prov.epic_prov_id
     ) t11 ON
         bill.epic_prov_id = t11.epic_prov_id
     AND
         EXTRACT(YEAR FROM cal.calendar_dt) = t11.academic_yr
+    LEFT JOIN dart_ods.mv_coba_prov t12 ON prov.epic_prov_id=t12.prov_id
 WHERE
         fps.txn_type_nm = 'CHARGE'
     AND
@@ -356,9 +368,11 @@ SELECT
     t1.cpt AS cpt_id,
     t4.cpt_cd_descr AS cpt_nm,
     t1.bill_prov_id AS billprov_id,
+    t11.opr_id AS billprov_phsid,
     t5.prov_nm AS billprov_nm,
     t5.prov_type_descr AS billprov_tp,
     t5.prov_dx_grp_dv AS diseasecenter,
+    t5.prov_dx_site_dv AS site,
     1 AS servicequantity,
     t10.rvu,
     t11.distrib_pct AS cfte,
@@ -416,6 +430,7 @@ FROM
         SELECT
             prov.epic_prov_id,
             cal.academic_yr,
+            login.opr_id,
             round(
                 SUM(hrs.std_hrs_alloc * alloc.distrib_pct / 100 / yr_days.no_of_days) * 100,
                 3
@@ -444,7 +459,8 @@ FROM
             alloc.active_ind = 'A'
         GROUP BY
             cal.academic_yr,
-            prov.epic_prov_id
+            prov.epic_prov_id,
+            login.opr_id
         ORDER BY prov.epic_prov_id
     ) t11 ON
         t1.bill_prov_id = t11.epic_prov_id
