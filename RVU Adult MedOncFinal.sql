@@ -470,3 +470,5 @@ WHERE
         t1.transact_typ_cd = 1
     AND
         t1.post_dttm >= '30-MAY-15'
+
+
