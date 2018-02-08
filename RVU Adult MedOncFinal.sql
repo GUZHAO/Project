@@ -131,7 +131,8 @@ SELECT
     t7.prov_type_descr AS billprov_tp,
     t7.prov_dx_grp_dv AS diseasecenter,
     t7.prov_dx_site_dv AS site,
-    1 AS servicequantity,
+    CASE WHEN t1.TRANSACT_AMT >=0 THEN 1
+      ELSE -1 END AS servicequantity,
     t10.rvu,
     t11.distrib_pct AS cfte,
     t1.svc_dttm AS service_dt,
@@ -224,6 +225,8 @@ FROM
         t1.bill_prov_id = t11.epic_prov_id
     AND
         EXTRACT(YEAR FROM t1.svc_dttm) = t11.academic_yr
+WHERE t1.BILL_PROV_ID IS NOT NULL
+AND t1.TRANSACT_AMT<0
 
 UNION 
 /*Outpatient Pre-Epic*/ 
@@ -470,5 +473,10 @@ WHERE
         t1.transact_typ_cd = 1
     AND
         t1.post_dttm >= '30-MAY-15'
+    AND t1.TRANSACT_ID NOT IN (
+  SELECT DISTINCT t1.ORIG_REVRSE_TRANSACT_ID
+  FROM dart_ods.ods_edw_fin_hosp_transact t1
+  WHERE t1.ORIG_REVRSE_TRANSACT_ID IS NOT NULL);
+
 
 
