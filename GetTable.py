@@ -1,3 +1,4 @@
+# This only applies to SQL-like language
 from pprint import pprint
 
 
@@ -21,7 +22,7 @@ def randw(writefile, readfile):
                     tb.write(fcont.strip() + '\n')
 
 
-#POPC ACP
+# POPC ACP
 randw('//cifs2/coba$/Ad-Hoc Data Requests/POPC Advanced Care Planning QI Project/POPC_ACP.txt',
       '//cifs2/coba$/Ad-Hoc Data Requests/POPC Advanced Care Planning QI Project/AdvancedCarePlanCodeDFCI03192018.txt')
 
