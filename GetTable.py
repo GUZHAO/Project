@@ -23,12 +23,21 @@ def randw(writefile, readfile):
 
 
 # POPC ACP
-randw('//cifs2/coba$/Ad-Hoc Data Requests/POPC Advanced Care Planning QI Project/POPC_ACP.txt',
-      '//cifs2/coba$/Ad-Hoc Data Requests/POPC Advanced Care Planning QI Project/AdvancedCarePlanCodeDFCI03192018.txt')
+# randw('//cifs2/coba$/Ad-Hoc Data Requests/POPC Advanced Care Planning QI Project/POPC_ACP.txt',
+#       '//cifs2/coba$/Ad-Hoc Data Requests/POPC Advanced Care Planning QI Project/AdvancedCarePlanCodeDFCI03192018.txt')
 
 # # popc
 # randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/POPC.txt',
 #       '//cifs2/homedir$/Office/Projects/Report Inventory/POPC_Oracle.txt')
+
+# # Oral Chemo Drug
+# randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/OCD.txt',
+#       '//cifs2/homedir$/Office/Projects/Report Inventory/Oral Chemo Drug.txt')
+
+# Inp CMS
+randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/ICMS.txt',
+      '//cifs2/homedir$/Office/Projects/Report Inventory/ICMS.txt')
+
 # # rvu
 # randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/RVUMedOnc.txt',
 #       '//cifs2/homedir$/Office/Projects/Report Inventory/RVU Adult MedOncFinal.txt')
