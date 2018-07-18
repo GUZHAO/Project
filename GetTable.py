@@ -34,9 +34,9 @@ def randw(writefile, readfile):
 # randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/OCD.txt',
 #       '//cifs2/homedir$/Office/Projects/Report Inventory/Oral Chemo Drug.txt')
 
-# Inp CMS
-randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/ICMS.txt',
-      '//cifs2/homedir$/Office/Projects/Report Inventory/ICMS.txt')
+# # Inp CMS
+# randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/ICMS.txt',
+#       '//cifs2/homedir$/Office/Projects/Report Inventory/ICMS.txt')
 
 # # rvu
 # randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/RVUMedOnc.txt',
@@ -53,3 +53,7 @@ randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/ICMS.txt',
 # # new pt next day 2
 # randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/NPND2.txt',
 #       '//cifs2/homedir$/Office/Projects/Report Inventory/NewPtNextDay2.txt')
+
+# RVU MED ONC
+randw('//cifs2/homedir$/Office/Projects/Report Inventory/result/RVU Medical Oncology SQL.txt',
+      '//cifs2/homedir$/Office/Projects/Report Inventory/RVU Medical Oncology SQL.txt')
